@@ -1,0 +1,95 @@
+# Ensemble Fusion Configuration
+ensemble:
+  method: weighted_logistic_regression  # Options: weighted_average, logistic_regression, xgboost
+  
+  # Model weights (for weighted_average)
+  weights:
+    video: 0.35
+    audio: 0.25
+    lipsync: 0.15
+    micro_expression: 0.15
+    behavior: 0.10
+    
+  # Models to include
+  models:
+    video:
+      enabled: true
+      checkpoint: checkpoints/video/best_model.ckpt
+      onnx_path: models/video_efficientnet_b3.onnx
+      use_onnx: true
+      
+    audio:
+      enabled: true
+      checkpoint: checkpoints/audio/best_model.ckpt
+      onnx_path: models/audio_wav2vec2.onnx
+      use_onnx: true
+      
+    lipsync:
+      enabled: true
+      checkpoint: checkpoints/lipsync/best_model.ckpt
+      onnx_path: models/lipsync_syncnet.onnx
+      use_onnx: true
+      
+    micro_expression:
+      enabled: true
+      checkpoint: checkpoints/micro_expression/best_model.ckpt
+      onnx_path: models/micro_expression.onnx
+      use_onnx: true
+      
+    behavior:
+      enabled: true
+      checkpoint: checkpoints/behavior/best_model.ckpt
+      onnx_path: models/behavior_consistency.onnx
+      use_onnx: true
+      
+training:
+  # Train meta-learner on validation predictions
+  train_path: data/ensemble/train_predictions.csv
+  val_path: data/ensemble/val_predictions.csv
+  test_path: data/ensemble/test_predictions.csv
+  
+  # For logistic regression
+  max_iter: 1000
+  solver: lbfgs
+  class_weight: balanced
+  
+  # For XGBoost (if used)
+  xgb_params:
+    max_depth: 5
+    learning_rate: 0.1
+    n_estimators: 100
+    objective: binary:logistic
+    
+inference:
+  device: cuda  # cuda or cpu
+  batch_size: 16
+  num_workers: 4
+  
+  # Thresholds
+  threshold: 0.5
+  confidence_threshold: 0.7  # High confidence threshold
+  
+  # Output format
+  output:
+    format: json
+    include_individual_scores: true
+    include_confidence_intervals: true
+    include_explanations: true
+    
+  # Post-processing
+  post_processing:
+    temporal_smoothing: true
+    smoothing_window: 5
+    outlier_removal: true
+    
+calibration:
+  enabled: true
+  method: platt_scaling  # Options: platt_scaling, isotonic_regression
+  
+export:
+  ensemble_model_path: models/ensemble_fusion.pkl
+  
+logging:
+  logger: wandb
+  project_name: deepguard-x
+  experiment_name: ensemble_fusion

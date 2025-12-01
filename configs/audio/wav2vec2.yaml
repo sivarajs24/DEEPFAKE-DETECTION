@@ -1,0 +1,84 @@
+# Audio Deepfake Detection Configuration - wav2vec2
+model:
+  architecture: wav2vec2
+  pretrained_model: facebook/wav2vec2-base
+  num_classes: 2
+  freeze_feature_extractor: false
+  freeze_epochs: 5  # Freeze for first 5 epochs
+  pooling: attention  # Options: mean, attention, weighted
+  dropout: 0.1
+  
+training:
+  batch_size: 16
+  learning_rate: 0.00005
+  weight_decay: 0.0001
+  max_epochs: 30
+  precision: 16
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 2
+  
+  optimizer: adamw
+  
+  scheduler:
+    type: reduce_lr_on_plateau
+    mode: max
+    factor: 0.5
+    patience: 3
+    min_lr: 0.000001
+    
+  early_stopping:
+    monitor: val_auc
+    patience: 7
+    mode: max
+    
+data:
+  train_path: data/asvspoof2019/train
+  val_path: data/asvspoof2019/val
+  test_path: data/asvspoof2019/test
+  sample_rate: 16000
+  max_duration: 10.0  # seconds
+  num_workers: 4
+  pin_memory: true
+  
+  # Audio Features
+  features:
+    type: wav2vec2  # Use raw waveform for wav2vec2
+    n_mfcc: 40
+    n_mels: 128
+    n_fft: 2048
+    hop_length: 512
+    
+  # Augmentations
+  augmentation:
+    time_stretch: [0.8, 1.2]
+    pitch_shift: [-2, 2]
+    gaussian_noise: 0.005
+    time_masking: 0.1
+    frequency_masking: 0.1
+    background_noise: 0.2
+    
+  # Adversarial Noise Filtering
+  noise_filtering:
+    enabled: true
+    method: spectral_gating
+    stationary: true
+    prop_decrease: 1.0
+    
+logging:
+  logger: wandb
+  project_name: deepguard-x
+  experiment_name: audio_wav2vec2
+  log_every_n_steps: 10
+  
+checkpoint:
+  dirpath: checkpoints/audio
+  filename: wav2vec2_{epoch}_{val_auc:.4f}
+  monitor: val_auc
+  mode: max
+  save_top_k: 3
+  save_last: true
+  
+export:
+  onnx_path: models/audio_wav2vec2.onnx
+  opset_version: 14
+  dynamic_axes: true

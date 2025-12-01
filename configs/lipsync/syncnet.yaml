@@ -1,0 +1,86 @@
+# Lip-Sync Detection Configuration
+model:
+  architecture: syncnet
+  video_encoder:
+    type: resnet18
+    pretrained: true
+    output_dim: 512
+    
+  audio_encoder:
+    type: conv1d
+    input_features: 13  # MFCC features
+    output_dim: 512
+    
+  fusion:
+    type: contrastive  # Contrastive learning for sync
+    temperature: 0.07
+    margin: 0.5
+    
+training:
+  batch_size: 64
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  max_epochs: 40
+  precision: 16
+  gradient_clip_val: 1.0
+  
+  optimizer: adam
+  
+  scheduler:
+    type: step_lr
+    step_size: 10
+    gamma: 0.5
+    
+  early_stopping:
+    monitor: val_sync_acc
+    patience: 10
+    mode: max
+    
+data:
+  train_path: data/lipsync/train
+  val_path: data/lipsync/val
+  test_path: data/lipsync/test
+  
+  # Video settings
+  fps: 25
+  face_detection: mediapipe
+  mouth_roi_size: [96, 96]
+  temporal_window: 5  # frames
+  
+  # Audio settings
+  sample_rate: 16000
+  audio_window: 0.2  # seconds (matches 5 frames at 25fps)
+  n_mfcc: 13
+  n_fft: 512
+  hop_length: 160
+  
+  num_workers: 4
+  pin_memory: true
+  
+  # Data generation
+  positive_samples: true  # In-sync pairs
+  negative_samples: true  # Out-of-sync pairs
+  negative_offset_range: [1, 15]  # frame offset for negatives
+  
+logging:
+  logger: wandb
+  project_name: deepguard-x
+  experiment_name: lipsync_syncnet
+  log_every_n_steps: 10
+  
+checkpoint:
+  dirpath: checkpoints/lipsync
+  filename: syncnet_{epoch}_{val_sync_acc:.4f}
+  monitor: val_sync_acc
+  mode: max
+  save_top_k: 3
+  save_last: true
+  
+export:
+  onnx_path: models/lipsync_syncnet.onnx
+  opset_version: 14
+  dynamic_axes: true
+  
+inference:
+  threshold: 7.5  # Sync distance threshold
+  stride: 1  # Frame stride for inference

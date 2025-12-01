@@ -1,0 +1,66 @@
+# Video Model Configuration - Vision Transformer (ViT)
+model:
+  architecture: vit_base_patch16_224
+  pretrained: true
+  num_classes: 2
+  dropout: 0.2
+  attention_dropout: 0.1
+  
+training:
+  batch_size: 24  # ViT requires more memory
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  max_epochs: 40
+  precision: 16
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 2
+  
+  optimizer: adamw
+  
+  scheduler:
+    type: cosine_annealing_warm_restarts
+    t_0: 10
+    t_mult: 2
+    eta_min: 0.000001
+    
+  early_stopping:
+    monitor: val_auc
+    patience: 10
+    mode: max
+    
+data:
+  train_path: data/faceforensics/train
+  val_path: data/faceforensics/val
+  test_path: data/faceforensics/test
+  image_size: 224
+  num_workers: 4
+  pin_memory: true
+  
+  augmentation:
+    horizontal_flip: 0.5
+    random_brightness_contrast: 0.3
+    random_gamma: 0.2
+    gaussian_noise: 0.1
+    motion_blur: 0.1
+    jpeg_compression: [70, 100]
+    cutmix_alpha: 1.0
+    mixup_alpha: 0.2
+    
+logging:
+  logger: wandb
+  project_name: deepguard-x
+  experiment_name: video_vit_base
+  log_every_n_steps: 10
+  
+checkpoint:
+  dirpath: checkpoints/video
+  filename: vit_base_{epoch}_{val_auc:.4f}
+  monitor: val_auc
+  mode: max
+  save_top_k: 3
+  save_last: true
+  
+export:
+  onnx_path: models/video_vit_base.onnx
+  opset_version: 14
+  dynamic_axes: true

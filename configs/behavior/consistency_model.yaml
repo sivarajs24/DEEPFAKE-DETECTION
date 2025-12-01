@@ -1,0 +1,117 @@
+# Behavior Consistency Model Configuration
+model:
+  architecture: behavior_consistency
+  
+  # Audio Emotion Model
+  audio_emotion:
+    model: wav2vec2_emotion
+    pretrained_model: facebook/wav2vec2-base
+    num_emotions: 8  # neutral, happy, sad, angry, fear, disgust, surprise, calm
+    freeze_feature_extractor: true
+    pooling: attention
+    
+  # Video Emotion Model
+  video_emotion:
+    model: efficientnet_b0
+    pretrained: true
+    num_emotions: 8
+    dropout: 0.3
+    
+  # Consistency Checker
+  consistency:
+    method: cross_modal_attention
+    hidden_dim: 256
+    num_heads: 8
+    dropout: 0.1
+    
+training:
+  batch_size: 24
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  max_epochs: 40
+  precision: 16
+  gradient_clip_val: 1.0
+  
+  optimizer: adamw
+  
+  scheduler:
+    type: cosine_annealing
+    t_max: 40
+    eta_min: 0.000001
+    
+  early_stopping:
+    monitor: val_consistency_auc
+    patience: 10
+    mode: max
+    
+  # Loss weights
+  loss_weights:
+    audio_emotion: 0.3
+    video_emotion: 0.3
+    consistency: 0.4
+    
+data:
+  train_path: data/behavior/train
+  val_path: data/behavior/val
+  test_path: data/behavior/test
+  
+  # Audio settings
+  audio:
+    sample_rate: 16000
+    max_duration: 5.0
+    
+  # Video settings
+  video:
+    fps: 25
+    face_size: 224
+    temporal_window: 10  # frames for emotion
+    
+  num_workers: 4
+  pin_memory: true
+  
+  # Emotion datasets
+  audio_emotion_dataset: data/ravdess
+  video_emotion_dataset: data/fer2013
+  
+  # Augmentations
+  augmentation:
+    audio:
+      time_stretch: [0.9, 1.1]
+      pitch_shift: [-1, 1]
+      gaussian_noise: 0.005
+      
+    video:
+      horizontal_flip: 0.5
+      brightness_contrast: 0.2
+      gaussian_noise: 0.1
+      
+logging:
+  logger: wandb
+  project_name: deepguard-x
+  experiment_name: behavior_consistency
+  log_every_n_steps: 10
+  
+checkpoint:
+  dirpath: checkpoints/behavior
+  filename: behavior_{epoch}_{val_consistency_auc:.4f}
+  monitor: val_consistency_auc
+  mode: max
+  save_top_k: 3
+  save_last: true
+  
+export:
+  onnx_path: models/behavior_consistency.onnx
+  opset_version: 14
+  dynamic_axes: true
+  
+inference:
+  mismatch_threshold: 0.4  # Emotion mismatch score threshold
+  emotions:
+    - neutral
+    - happy
+    - sad
+    - angry
+    - fear
+    - disgust
+    - surprise
+    - calm

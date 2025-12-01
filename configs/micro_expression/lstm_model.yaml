@@ -1,0 +1,120 @@
+# Micro-Expression Analysis Configuration
+model:
+  architecture: micro_expression_rnn
+  
+  # Feature Extraction
+  face_mesh:
+    model: mediapipe
+    static_image_mode: false
+    max_num_faces: 1
+    refine_landmarks: true
+    min_detection_confidence: 0.5
+    min_tracking_confidence: 0.5
+    
+  optical_flow:
+    method: farneback
+    pyr_scale: 0.5
+    levels: 3
+    winsize: 15
+    iterations: 3
+    poly_n: 5
+    poly_sigma: 1.2
+    
+  # Temporal Model
+  temporal_model:
+    type: lstm
+    input_dim: 128  # Extracted features
+    hidden_dim: 256
+    num_layers: 2
+    dropout: 0.3
+    bidirectional: true
+    
+  classifier:
+    hidden_dims: [512, 256]
+    dropout: 0.2
+    num_classes: 2
+    
+training:
+  batch_size: 32
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  max_epochs: 50
+  precision: 16
+  gradient_clip_val: 1.0
+  
+  optimizer: adamw
+  
+  scheduler:
+    type: reduce_lr_on_plateau
+    mode: max
+    factor: 0.5
+    patience: 5
+    min_lr: 0.000001
+    
+  early_stopping:
+    monitor: val_f1
+    patience: 10
+    mode: max
+    
+data:
+  train_path: data/micro_expression/train
+  val_path: data/micro_expression/val
+  test_path: data/micro_expression/test
+  
+  # Sequence settings
+  sequence_length: 30  # frames (~1 second at 30fps)
+  stride: 15  # Overlap between sequences
+  fps: 30
+  
+  # Feature extraction
+  features:
+    # Blink detection
+    blink:
+      enabled: true
+      ear_threshold: 0.21  # Eye Aspect Ratio threshold
+      
+    # Eyebrow movement
+    eyebrow:
+      enabled: true
+      landmarks: [70, 63, 105, 66, 107, 336, 296, 334, 293, 300]
+      
+    # Mouth movement
+    mouth:
+      enabled: true
+      landmarks: [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291]
+      velocity_threshold: 0.05
+      
+    # Head pose
+    head_pose:
+      enabled: true
+      
+  num_workers: 4
+  pin_memory: true
+  
+  # Augmentations
+  augmentation:
+    temporal_crop: 0.2
+    random_temporal_shift: 5
+    
+logging:
+  logger: wandb
+  project_name: deepguard-x
+  experiment_name: micro_expression_lstm
+  log_every_n_steps: 10
+  
+checkpoint:
+  dirpath: checkpoints/micro_expression
+  filename: micro_expr_{epoch}_{val_f1:.4f}
+  monitor: val_f1
+  mode: max
+  save_top_k: 3
+  save_last: true
+  
+export:
+  onnx_path: models/micro_expression.onnx
+  opset_version: 14
+  dynamic_axes: true
+  
+inference:
+  min_sequence_length: 15  # Minimum frames needed
+  overlap: 0.5  # Overlap between windows

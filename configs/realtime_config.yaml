@@ -1,0 +1,89 @@
+# Real-Time Detection Pipeline Configuration
+realtime:
+  # Input sources
+  input:
+    source: webcam  # Options: webcam, video_file, rtsp_stream
+    webcam_id: 0
+    resolution: [640, 480]
+    fps: 30
+    
+  # Processing settings
+  processing:
+    frame_skip: 2  # Process every Nth frame
+    batch_size: 8
+    buffer_size: 30  # frames
+    audio_chunk_duration: 1.0  # seconds
+    
+  # Async inference
+  async:
+    enabled: true
+    max_workers: 4
+    queue_size: 100
+    
+  # Models
+  models:
+    video:
+      enabled: true
+      onnx_path: models/video_efficientnet_b3.onnx
+      inference_interval: 10  # Process every 10 frames
+      
+    audio:
+      enabled: true
+      onnx_path: models/audio_wav2vec2.onnx
+      inference_interval: 1.0  # Process every 1 second
+      
+    lipsync:
+      enabled: true
+      onnx_path: models/lipsync_syncnet.onnx
+      inference_interval: 5  # Process every 5 frames
+      
+    micro_expression:
+      enabled: true
+      onnx_path: models/micro_expression.onnx
+      inference_interval: 15  # Process every 15 frames
+      
+    behavior:
+      enabled: false  # Disable for real-time (too heavy)
+      
+  # ONNX Runtime optimization
+  onnx:
+    providers:
+      - CUDAExecutionProvider
+      - CPUExecutionProvider
+    intra_op_num_threads: 4
+    inter_op_num_threads: 4
+    graph_optimization_level: all
+    
+  # Display
+  display:
+    show_video: true
+    show_predictions: true
+    show_fps: true
+    overlay_landmarks: true
+    overlay_scores: true
+    
+  # Alerting
+  alerts:
+    enabled: true
+    threshold: 0.7  # Alert if deepfake score > 0.7
+    sound_alert: true
+    visual_alert: true
+    log_alert: true
+    
+  # Recording
+  recording:
+    enabled: false
+    output_dir: recordings
+    save_detections_only: true  # Only save when deepfake detected
+    
+  # Performance
+  performance:
+    low_latency_mode: true
+    dynamic_batching: true
+    prefetch: true
+    
+logging:
+  enabled: true
+  log_file: logs/realtime.log
+  log_level: INFO
+  log_predictions: true
