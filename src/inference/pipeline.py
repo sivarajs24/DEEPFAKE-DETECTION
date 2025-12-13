@@ -134,12 +134,18 @@ class DeepGuardXInference:
     def _predict_video(self, video_path: str) -> float:
         """Predict video deepfake score"""
         try:
-            # Load and preprocess video frame
+            # Load and preprocess a middle frame for stability
             cap = cv2.VideoCapture(video_path)
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
+            target_idx = frame_count // 2
+            cap.set(cv2.CAP_PROP_POS_FRAMES, target_idx)
             ret, frame = cap.read()
-            cap.release()
-            
             if not ret:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                ret, frame = cap.read()
+            cap.release()
+
+            if not ret or frame is None:
                 logger.warning(f"Failed to read video: {video_path}")
                 return 0.0
             
@@ -149,7 +155,7 @@ class DeepGuardXInference:
             frame_normalized = frame_resized.astype(np.float32) / 255.0
             frame_normalized = (frame_normalized - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
             input_tensor = np.transpose(frame_normalized, (2, 0, 1))
-            input_tensor = np.expand_dims(input_tensor, axis=0)
+            input_tensor = np.expand_dims(input_tensor, axis=0).astype(np.float32)
             
             # Inference
             model_info = self.models['video']
@@ -157,7 +163,7 @@ class DeepGuardXInference:
                 outputs = model_info['session'].run(None, {'input': input_tensor})
                 logits = outputs[0][0]
                 probs = np.exp(logits) / np.sum(np.exp(logits))
-                return float(probs[1])  # Fake probability
+                return float(probs[1])  # Fake probability (class 1 = FAKE)
             
         except Exception as e:
             logger.error(f"Video prediction error: {e}")

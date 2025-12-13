@@ -52,7 +52,7 @@ class MetricsCalculator:
         self.targets.append(targets.cpu().numpy())
         
         if probs is not None:
-            self.probabilities.append(probs.cpu().numpy())
+            self.probabilities.append(probs.detach().float().cpu().numpy())
     
     def compute(self) -> Dict[str, float]:
         """

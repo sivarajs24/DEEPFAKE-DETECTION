@@ -2,8 +2,8 @@
 realtime:
   # Input sources
   input:
-    source: webcam  # Options: webcam, video_file, rtsp_stream
-    webcam_id: 0
+    source: video_file  # Options: webcam, video_file, rtsp_stream
+    video_path: data/video/val/real/00012_dup_2443.mp4
     resolution: [640, 480]
     fps: 30
     
@@ -28,17 +28,17 @@ realtime:
       inference_interval: 10  # Process every 10 frames
       
     audio:
-      enabled: true
+      enabled: false
       onnx_path: models/audio_wav2vec2.onnx
       inference_interval: 1.0  # Process every 1 second
       
     lipsync:
-      enabled: true
+      enabled: false
       onnx_path: models/lipsync_syncnet.onnx
       inference_interval: 5  # Process every 5 frames
       
     micro_expression:
-      enabled: true
+      enabled: false
       onnx_path: models/micro_expression.onnx
       inference_interval: 15  # Process every 15 frames
       

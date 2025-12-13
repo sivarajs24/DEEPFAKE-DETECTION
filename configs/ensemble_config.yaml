@@ -1,6 +1,6 @@
 # Ensemble Fusion Configuration
 ensemble:
-  method: weighted_logistic_regression  # Options: weighted_average, logistic_regression, xgboost
+  method: weighted_average  # Options: weighted_average, logistic_regression, xgboost
   
   # Model weights (for weighted_average)
   weights:

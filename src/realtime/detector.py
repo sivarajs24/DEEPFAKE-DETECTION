@@ -221,7 +221,7 @@ class RealtimeDetector:
                     
                     # Softmax
                     probs = np.exp(logits) / np.sum(np.exp(logits))
-                    predictions['video'] = float(probs[1])  # Fake probability
+                    predictions['video'] = float(probs[1])  # Fake probability (class 1 = FAKE)
                     
                 except Exception as e:
                     logger.error(f"Video inference error: {e}")
@@ -274,7 +274,7 @@ class RealtimeDetector:
         transposed = np.transpose(normalized, (2, 0, 1))
         
         # Add batch dimension
-        tensor = np.expand_dims(transposed, axis=0)
+        tensor = np.expand_dims(transposed, axis=0).astype(np.float32)
         
         return tensor
     

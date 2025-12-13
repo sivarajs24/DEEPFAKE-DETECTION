@@ -1,4 +1,4 @@
-# Video Model Configuration - EfficientNet-B3
+# Image Model Configuration - EfficientNet-B3
 model:
   architecture: efficientnet_b3
   pretrained: true
@@ -6,7 +6,7 @@ model:
   dropout: 0.3
   
 training:
-  batch_size: 16
+  batch_size: 32  # Can often be higher for images than video frames
   learning_rate: 0.0001
   weight_decay: 0.0001
   max_epochs: 50
@@ -30,13 +30,21 @@ training:
     monitor: val_loss
     patience: 7
     mode: min
+
+checkpoint:
+  dirpath: checkpoints/image
+  filename: image_{epoch}_{val_loss:.4f}
+  monitor: val_loss
+  mode: min
+  save_top_k: 3
+  save_last: true
     
 data:
-  train_path: data/video/train
-  val_path: data/video/val
-  test_path: data/video/test
+  train_path: data/image/train
+  val_path: data/image/val
+  test_path: data/image/test
   image_size: 224
-  num_workers: 2
+  num_workers: 4
   pin_memory: true
   
   # Augmentations
@@ -47,22 +55,8 @@ data:
     gaussian_noise: 0.1
     motion_blur: 0.1
     jpeg_compression: [70, 100]
-    
+
 logging:
-  logger: tensorboard  # Options: wandb, mlflow, tensorboard
+  logger: tensorboard
   project_name: deepguard-x
-  experiment_name: video_efficientnet_b3
-  log_every_n_steps: 10
-  
-checkpoint:
-  dirpath: checkpoints/video
-  filename: efficientnet_b3_{epoch}_{val_loss:.4f}
-  monitor: val_loss
-  mode: min
-  save_top_k: 3
-  save_last: true
-  
-export:
-  onnx_path: models/video_efficientnet_b3.onnx
-  opset_version: 14
-  dynamic_axes: true
+  experiment_name: image_training
