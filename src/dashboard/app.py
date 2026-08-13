@@ -13,6 +13,11 @@ from pathlib import Path
 import tempfile
 import json
 from typing import Dict, Any
+import sys
+import os
+
+# Add project root to sys.path so 'src' can be imported
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.inference.pipeline import DeepGuardXInference
 
@@ -355,14 +360,7 @@ def main():
         st.markdown("---")
         st.markdown("### 🤖 AI MODULES")
         
-        col1, col2 = st.columns(2)
-        with col1:
-            enable_video = st.checkbox("🎥 Video", value=True)
-            enable_audio = st.checkbox("🔊 Audio", value=True)
-            enable_lipsync = st.checkbox("👄 Lip-Sync", value=True)
-        with col2:
-            enable_micro = st.checkbox("😐 Micro-Exp", value=True)
-            enable_behavior = st.checkbox("🧠 Behavior", value=False)
+        enable_video = st.checkbox("🎥 Video", value=True)
         
         st.markdown("---")
         st.markdown("### 🎚️ THRESHOLD")
@@ -411,8 +409,15 @@ def upload_mode():
     """Upload file mode"""
     st.markdown("## 📤 UPLOAD & ANALYZE")
     
-    # Create 3D card container
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+    # Create stylized header instead of broken wrapper
+    st.markdown("""
+    <div class="metric-card" style="margin-bottom: 2rem;">
+        <h3 style="margin-top: 0;">📤 MEDIA INGESTION PORTAL</h3>
+        <p style="color: #c0d6e8; font-size: 0.95rem; margin-bottom: 0;">
+            Securely upload your suspect video or audio files. The DeepGuard-X multi-modal AI engine will process your media through our advanced neural networks to detect any signs of synthetic manipulation, deepfake artifacts, or voice cloning.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
     col1, col2 = st.columns([2, 1])
     
@@ -432,7 +437,7 @@ def upload_mode():
             st.info("👆 Waiting for media...")
             st.caption("Supported formats: MP4, AVI, MOV, WAV, MP3")
     
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Removed broken closing div tag
     
     if uploaded_file is not None:
         st.markdown("<br>", unsafe_allow_html=True)
@@ -465,21 +470,23 @@ def upload_mode():
             
         with col2:
             st.markdown("""
-            <div class="metric-card">
+            <div class="metric-card" style="opacity: 0.5;">
                 <h4>🔊 Audio Analysis</h4>
                 <p style="font-size: 0.9rem; color: #c0d6e8;">
-                Detects synthetic voice patterns, spectral irregularities, and robotic artifacts using Wav2Vec 2.0.
+                Detects synthetic voice patterns, spectral irregularities, and robotic artifacts.
                 </p>
+                <div style="margin-top: 10px; color: #ff00ff; font-weight: bold; font-size: 0.8rem; font-family: 'Orbitron', sans-serif;">[ COMING SOON ]</div>
             </div>
             """, unsafe_allow_html=True)
             
         with col3:
             st.markdown("""
-            <div class="metric-card">
+            <div class="metric-card" style="opacity: 0.5;">
                 <h4>🧠 Behavioral AI</h4>
                 <p style="font-size: 0.9rem; color: #c0d6e8;">
-                Evaluates micro-expressions, eye-blinking patterns, and lip-sync consistency for holistic detection.
+                Evaluates micro-expressions, eye-blinking patterns, and lip-sync consistency.
                 </p>
+                <div style="margin-top: 10px; color: #ff00ff; font-weight: bold; font-size: 0.8rem; font-family: 'Orbitron', sans-serif;">[ COMING SOON ]</div>
             </div>
             """, unsafe_allow_html=True)
 
