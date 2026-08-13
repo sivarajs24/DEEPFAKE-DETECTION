@@ -140,3 +140,10 @@ optuna>=3.5.0  # Hyperparameter optimization
 # Documentation
 sphinx>=7.2.6
 sphinx-rtd-theme>=2.0.0
+
+# Django Backend
+django>=5.0.0
+djangorestframework>=3.14.0
+django-cors-headers>=4.3.0
+requests>=2.31.0
+
