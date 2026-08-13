@@ -50,6 +50,7 @@ class DeepGuardXInference:
     def _load_models(self):
         """Load all detection models"""
         models_config = self.config['ensemble']['models']
+        project_root = Path(__file__).resolve().parent.parent.parent
         
         for model_name, model_cfg in models_config.items():
             if not model_cfg.get('enabled', False):
@@ -58,32 +59,41 @@ class DeepGuardXInference:
             if self.use_onnx and model_cfg.get('use_onnx', False):
                 # Load ONNX model
                 onnx_path = model_cfg.get('onnx_path')
-                if onnx_path and Path(onnx_path).exists():
-                    try:
-                        providers = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if self.device == 'cuda' else ['CPUExecutionProvider']
-                        session = ort.InferenceSession(onnx_path, providers=providers)
-                        self.models[model_name] = {
-                            'type': 'onnx',
-                            'session': session
-                        }
-                        logger.info(f"Loaded ONNX model: {model_name}")
-                    except Exception as e:
-                        logger.error(f"Failed to load ONNX {model_name}: {e}")
+                if onnx_path:
+                    abs_onnx_path = project_root / onnx_path
+                    if abs_onnx_path.exists():
+                        try:
+                            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if self.device == 'cuda' else ['CPUExecutionProvider']
+                            session = ort.InferenceSession(str(abs_onnx_path), providers=providers)
+                            self.models[model_name] = {
+                                'type': 'onnx',
+                                'session': session
+                            }
+                            logger.info(f"Loaded ONNX model: {model_name}")
+                        except Exception as e:
+                            logger.error(f"Failed to load ONNX {model_name}: {e}")
+                    else:
+                        logger.warning(f"ONNX model path does not exist: {abs_onnx_path}")
             else:
                 # Load PyTorch model
                 checkpoint_path = model_cfg.get('checkpoint')
-                if checkpoint_path and Path(checkpoint_path).exists():
-                    try:
-                        # Load model (implementation specific to each module)
-                        logger.info(f"Loaded PyTorch model: {model_name}")
-                    except Exception as e:
-                        logger.error(f"Failed to load PyTorch {model_name}: {e}")
+                if checkpoint_path:
+                    abs_checkpoint_path = project_root / checkpoint_path
+                    if abs_checkpoint_path.exists():
+                        try:
+                            # Load model (implementation specific to each module)
+                            logger.info(f"Loaded PyTorch model: {model_name}")
+                        except Exception as e:
+                            logger.error(f"Failed to load PyTorch {model_name}: {e}")
+                    else:
+                        logger.warning(f"PyTorch checkpoint does not exist: {abs_checkpoint_path}")
     
     def predict(
         self,
         video_path: Optional[str] = None,
         audio_path: Optional[str] = None,
-        return_details: bool = True
+        return_details: bool = True,
+        threshold: Optional[float] = None
     ) -> Dict[str, Any]:
         """
         Predict on video/audio file
@@ -92,6 +102,7 @@ class DeepGuardXInference:
             video_path: Path to video file
             audio_path: Path to audio file
             return_details: Whether to return detailed results
+            threshold: Optional threshold for classification
             
         Returns:
             Dictionary of prediction results
@@ -124,7 +135,19 @@ class DeepGuardXInference:
             predictions['behavior'] = behavior_score
         
         # Ensemble fusion
-        result = self.ensemble.predict(predictions)
+        # Debug: log predictions and incoming threshold
+        try:
+            logger.info(f"DeepGuardXInference.predict: predictions={predictions}, incoming_threshold={threshold}")
+        except Exception:
+            print(f"[DeepGuardXInference] predictions={predictions}, incoming_threshold={threshold}")
+
+        result = self.ensemble.predict(predictions, threshold=threshold)
+
+        # Debug: log result returned from ensemble
+        try:
+            logger.info(f"DeepGuardXInference.predict result: {result}")
+        except Exception:
+            print(f"[DeepGuardXInference] result={result}")
         
         if return_details:
             result['details'] = self._generate_details(predictions)
