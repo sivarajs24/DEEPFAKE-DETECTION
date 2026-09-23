@@ -105,16 +105,26 @@ class EnsembleFusion:
             val_score = self.meta_learner.score(val_predictions, val_labels)
             logger.info(f"Meta-learner validation accuracy: {val_score:.4f}")
     
-    def predict(self, predictions: Dict[str, float]) -> Dict[str, Any]:
+    def predict(self, predictions: Dict[str, float], threshold: Optional[float] = None) -> Dict[str, Any]:
         """
         Make ensemble prediction
         
         Args:
             predictions: Dictionary of {model_name: prediction_score}
+            threshold: Optional threshold for classification (overrides config)
             
         Returns:
             Dictionary with final score and individual scores
         """
+        # Determine threshold: parameter overrides config
+        if threshold is None:
+            threshold = self.config['inference'].get('threshold', 0.5)
+
+        # Debug logging: print incoming predictions and threshold
+        try:
+            logger.info(f"Ensemble.predict called with predictions={predictions} and threshold={threshold}")
+        except Exception:
+            print(f"[EnsembleFusion] predictions={predictions}, threshold={threshold}")
         if self.method == 'weighted_average':
             final_score = self.weighted_average(predictions)
             
@@ -137,11 +147,18 @@ class EnsembleFusion:
         # Prepare result
         result = {
             'final_score': float(final_score),
-            'final_label': 'FAKE' if final_score > 0.5 else 'REAL',
+            # Treat scores equal to the threshold as FAKE to avoid ambiguous classification
+            'final_label': 'FAKE' if final_score >= threshold else 'REAL',
             'confidence': float(max(final_score, 1 - final_score)),
             'individual_scores': predictions,
-            'threshold': self.config['inference'].get('threshold', 0.5)
+            'threshold': float(threshold)
         }
+
+        # Debug log result decision
+        try:
+            logger.info(f"Ensemble result: final_score={final_score}, threshold={threshold}, final_label={result['final_label']}")
+        except Exception:
+            print(f"[EnsembleFusion] final_score={final_score}, threshold={threshold}, final_label={result['final_label']}")
         
         return result
     

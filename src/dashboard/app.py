@@ -15,11 +15,13 @@ import json
 from typing import Dict, Any
 import sys
 import os
+import requests
 
 # Add project root to sys.path so 'src' can be imported
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.inference.pipeline import DeepGuardXInference
+# API Base URL
+API_URL = "http://localhost:8000/api"
 
 # Page config
 st.set_page_config(
@@ -28,16 +30,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-
-@st.cache_resource(show_spinner=False)
-def get_detector() -> DeepGuardXInference:
-    """Load and cache the inference pipeline."""
-    return DeepGuardXInference(
-        config_path="configs/ensemble_config.yaml",
-        use_onnx=True,
-        device="cuda",
-    )
 
 # Custom 3D Professional CSS
 st.markdown("""
@@ -389,11 +381,11 @@ def main():
     
     # Main content
     if detection_mode == "Upload File":
-        upload_mode()
+        upload_mode(threshold)
     elif detection_mode == "Webcam (Real-time)":
-        webcam_mode()
+        webcam_mode(threshold)
     else:
-        batch_mode()
+        batch_mode(threshold)
         
     # Footer
     st.markdown("---")
@@ -405,7 +397,7 @@ def main():
     """, unsafe_allow_html=True)
 
 
-def upload_mode():
+def upload_mode(threshold=0.5):
     """Upload file mode"""
     st.markdown("## 📤 UPLOAD & ANALYZE")
     
@@ -450,7 +442,7 @@ def upload_mode():
                     tmp_file.write(uploaded_file.read())
                     tmp_path = tmp_file.name
                 
-                analyze_file(tmp_path)
+                analyze_file(tmp_path, threshold)
     else:
         # Empty state content
         st.markdown("<br>", unsafe_allow_html=True)
@@ -491,7 +483,7 @@ def upload_mode():
             """, unsafe_allow_html=True)
 
 
-def analyze_file(file_path: str):
+def analyze_file(file_path: str, threshold: float = 0.5):
     """Analyze uploaded file"""
     
     # Progress bar with futuristic styling
@@ -513,8 +505,17 @@ def analyze_file(file_path: str):
             import time
             time.sleep(0.2)
 
-        detector = get_detector()
-        results = detector.predict(video_path=file_path, audio_path=None)
+        with open(file_path, 'rb') as f:
+            files = {'file': (os.path.basename(file_path), f, 'application/octet-stream')}
+            data = {'threshold': threshold}
+            response = requests.post(f"{API_URL}/analyze/", files=files, data=data)
+            
+        if response.status_code == 200:
+            results = response.json()
+            if "error" in results:
+                raise Exception(results["error"])
+        else:
+            raise Exception(f"API Error: {response.text}")
 
         status_text.markdown("**✅ Analysis Complete!**")
         progress_bar.progress(100)
@@ -538,59 +539,56 @@ def display_results(results: Dict[str, Any]):
     st.markdown("## 🎯 DETECTION RESULTS")
     st.markdown("<br>", unsafe_allow_html=True)
     
+    # Pull the threshold actually used (sent back from API)
+    threshold = float(results.get('threshold', 0.5))
+    final_score = float(results['final_score'])
+    final_label = results['final_label']
+    
     # Main prediction cards with 3D effect
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric(
-            "🎭 VERDICT",
-            results['final_label'],
-            delta=None
-        )
+        st.metric("🎭 VERDICT", final_label, delta=None)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric(
-            "⚠️ THREAT LEVEL",
-            f"{results['final_score']:.1%}",
-            delta=None
-        )
+        st.metric("⚠️ THREAT LEVEL", f"{final_score:.2%}", delta=None)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col3:
         st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric(
-            "🎯 CONFIDENCE",
-            f"{results['confidence']:.1%}",
-            delta=None
-        )
+        st.metric("🎯 CONFIDENCE", f"{results['confidence']:.2%}", delta=None)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+        st.metric("🎚️ THRESHOLD", f"{threshold:.2f}", delta=None)
         st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown("<br>", unsafe_allow_html=True)
     
     # Alert with enhanced styling
-    if results['final_label'] == 'FAKE':
-        st.error("🚨 **DEEPFAKE DETECTED** | This media shows strong indicators of synthetic manipulation")
+    if final_label == 'FAKE':
+        st.error(f"🚨 **DEEPFAKE DETECTED** | Score {final_score:.2%} exceeds threshold {threshold:.2f} — strong synthetic manipulation indicators found")
     else:
-        st.success("✅ **AUTHENTIC MEDIA** | No significant manipulation detected")
+        st.success(f"✅ **AUTHENTIC MEDIA** | Score {final_score:.2%} is below threshold {threshold:.2f} — no significant manipulation detected")
     
     st.markdown("<br>", unsafe_allow_html=True)
     
     # Visualization section
     col1, col2 = st.columns(2)
+    individual_scores = results['individual_scores']
     
     with col1:
         # Individual model scores - 3D Bar Chart
         st.markdown("### 📊 MODEL BREAKDOWN")
         
-        individual_scores = results['individual_scores']
-        
         fig = go.Figure()
         
-        # Add bars with gradient colors
-        colors = ['#ff0066' if v > 0.5 else '#00ff88' for v in individual_scores.values()]
+        # Color bars relative to the actual threshold used
+        colors = ['#ff0066' if v > threshold else '#00ff88' for v in individual_scores.values()]
         
         fig.add_trace(go.Bar(
             x=list(individual_scores.keys()),
@@ -599,14 +597,25 @@ def display_results(results: Dict[str, Any]):
                 color=colors,
                 line=dict(color='rgba(0, 212, 255, 0.8)', width=2)
             ),
-            text=[f"{v:.1%}" for v in individual_scores.values()],
+            text=[f"{v:.2%}" for v in individual_scores.values()],
             textposition='outside',
             textfont=dict(size=14, color='#00f5ff', family='Orbitron'),
             hovertemplate='<b>%{x}</b><br>Score: %{y:.2%}<extra></extra>'
         ))
         
+        # Draw threshold line
+        fig.add_hline(
+            y=threshold,
+            line_dash="dash",
+            line_color="#ffcc00",
+            line_width=2,
+            annotation_text=f"Threshold: {threshold:.2f}",
+            annotation_position="top right",
+            annotation_font_color="#ffcc00"
+        )
+        
         fig.update_layout(
-            title=dict(text="AI Model Predictions", font=dict(size=16, color='#00f5ff')),
+            title=dict(text="AI Model Predictions vs Threshold", font=dict(size=16, color='#00f5ff')),
             xaxis=dict(
                 title="Detection Model",
                 tickfont=dict(size=11, color='#00d4ff'),
@@ -733,15 +742,14 @@ def display_results(results: Dict[str, Any]):
     
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        if st.button("📥 DOWNLOAD FULL REPORT", use_container_width=True):
-            report = generate_report(results)
-            st.download_button(
-                label="💾 Save JSON Report",
-                data=json.dumps(report, indent=2),
-                file_name="deepguard_analysis_report.json",
-                mime="application/json",
-                use_container_width=True
-            )
+        report = generate_report(results)
+        st.download_button(
+            label="📥 DOWNLOAD FULL REPORT",
+            data=json.dumps(report, indent=2),
+            file_name="deepguard_analysis_report.json",
+            mime="application/json",
+            use_container_width=True
+        )
 
 
 def generate_report(results: Dict[str, Any]) -> Dict[str, Any]:
@@ -752,12 +760,12 @@ def generate_report(results: Dict[str, Any]) -> Dict[str, Any]:
         'results': results,
         'metadata': {
             'models_used': list(results['individual_scores'].keys()),
-            'threshold': 0.5
+            'threshold': float(results.get('threshold', 0.5))
         }
     }
 
 
-def webcam_mode():
+def webcam_mode(threshold=0.5):
     """Webcam real-time mode"""
     st.markdown("## 📹 REAL-TIME SURVEILLANCE")
     
@@ -808,7 +816,7 @@ def webcam_mode():
         st.caption("Save detections to database")
 
 
-def batch_mode():
+def batch_mode(threshold=0.5):
     """Batch processing mode"""
     st.markdown("## 📦 BATCH PROCESSING")
     
@@ -836,8 +844,6 @@ def batch_mode():
             
             results_data = []
             
-            detector = get_detector()
-            
             for i, file in enumerate(uploaded_files):
                 status_text.text(f"Analyzing: {file.name}...")
                 
@@ -848,7 +854,18 @@ def batch_mode():
                 
                 # Predict
                 try:
-                    res = detector.predict(video_path=tmp_path)
+                    with open(tmp_path, 'rb') as f:
+                        files = {'file': (file.name, f, 'application/octet-stream')}
+                        data = {'threshold': threshold}
+                        response = requests.post(f"{API_URL}/analyze/", files=files, data=data)
+                    
+                    if response.status_code != 200:
+                        raise Exception(f"API Error: {response.text}")
+                    
+                    res = response.json()
+                    if "error" in res:
+                        raise Exception(res["error"])
+                        
                     results_data.append({
                         "Filename": file.name,
                         "Verdict": res['final_label'],
