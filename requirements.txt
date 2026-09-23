@@ -141,9 +141,10 @@ optuna>=3.5.0  # Hyperparameter optimization
 sphinx>=7.2.6
 sphinx-rtd-theme>=2.0.0
 
-# Django Backend
-django>=5.0.0
-djangorestframework>=3.14.0
-django-cors-headers>=4.3.0
+# FastAPI Backend (Replacing Django)
+fastapi>=0.108.0
+uvicorn>=0.25.0
+pydantic>=2.5.3
+python-multipart>=0.0.6
 requests>=2.31.0
 

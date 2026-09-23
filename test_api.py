@@ -20,7 +20,7 @@ try:
         print("Error Response:")
         print(response.text)
 except requests.exceptions.ConnectionError:
-    print("Connection error: Is the Django server running?")
+    print("Connection error: Is the FastAPI server running?")
     sys.exit(1)
 except Exception as e:
     print(f"Exception occurred: {e}")

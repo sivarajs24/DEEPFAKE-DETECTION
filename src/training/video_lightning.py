@@ -40,7 +40,13 @@ class VideoDeepfakeModule(pl.LightningModule):
         self.model = create_video_model(config['model'])
         
         # Loss function with class weights (handle imbalanced data)
-        self.criterion = nn.CrossEntropyLoss()
+        class_weights = config.get('training', {}).get('class_weights', None)
+        if class_weights:
+            weight_tensor = torch.tensor(class_weights, dtype=torch.float32)
+            self.criterion = nn.CrossEntropyLoss(weight=weight_tensor)
+            logger.info(f"Using weighted CrossEntropyLoss: {class_weights}")
+        else:
+            self.criterion = nn.CrossEntropyLoss()
         
         # Metrics calculators
         self.train_metrics = MetricsCalculator()

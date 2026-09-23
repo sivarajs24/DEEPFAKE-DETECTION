@@ -88,6 +88,13 @@ htmlcov/
 .env.local
 secrets.yaml
 
+# Database
+*.sqlite3
+db.sqlite3
+
+# Frontend
+.streamlit/
+
 # Large files
 *.h5
 *.hdf5
